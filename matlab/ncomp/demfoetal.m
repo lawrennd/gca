@@ -10,13 +10,11 @@ global NDATA
 global DATADIM
 global LATENTDIM
 
-global XULINV
-global LAMBDA
+global X
 
 global BETA
 global NU_TAU
 global SIGMA2_TAU
-global LAGRANGE % Lagrange multipliers
 
 global NUBAR_TAU
 global SIGMA2BAR_TAU
@@ -24,50 +22,28 @@ global SIGMA2BAR_TAU
 global TAU
 global LNTAU
 
-global V
+global A
 global SBAR
 global SIGMA_S
 
-LATENTDIM = 8;
+LATENTDIM = 14;
 X = foetal_ecg(:, 2:9);%(1:10:end, :);%(:, 2:9); %6500)';
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
-
 % X = zero meaned data;
 meanX = mean(X, 1);
 for i = 1:NDATA
   X(i, :)  = X(i, :) - meanX;
 end
 
-
-%pre whiten data
-[q, s] = eig(cov(X));
-s = diag(s);
-s(find(s<0)) = eps;
-LAMBDA = sqrt(s)';
-U = q;
-UT = q';
-s = diag(s);
-XULINV = X*U*diag(1./LAMBDA);
-
-plot(XULINV(:, 1), XULINV(:, 2), 'rx')
-
-% X = zero meaned data;
-
-NDATA = size(XULINV, 1);
-DATADIM = size(XULINV, 2);
-%LATENTDIM = DATADIM;
-
-%V = mixing Weights - Matrix of LATENTDIM Rows, DATADIM Columns;
-if DATADIM > LATENTDIM
-  V = eye(DATADIM);
-else
-  V = eye(LATENTDIM);
+% Set standard deviations to 1
+for i = 1:DATADIM
+  X(:, i) = X(:, i)/std(X(:, i));
 end
-V = randn(LATENTDIM, DATADIM);
-for j = 1:LATENTDIM
-  V(j, :) = V(j, :)/sqrt(V(j, :)*V(j, :)');
-end
+
+A = randn( DATADIM, LATENTDIM)*0.1;
+
+plot(X(:, 1), X(:, 2), 'rx')
 
 % Tolerances
 tol = 1e-5;
@@ -80,8 +56,6 @@ SIGMA2_TAU = 1/3*ones(1, LATENTDIM);
 
 BETA = min(eig(cov(X)));
 
-
-
 NUBAR_TAU = nrepmat(NU_TAU, 1, NDATA);
 SIGMA2BAR_TAU = nrepmat(SIGMA2_TAU, 1, NDATA);
 
@@ -91,9 +65,9 @@ for j = 1:LATENTDIM
       - log(NUBAR_TAU(j)/2) ...
       - log(SIGMA2BAR_TAU(:,j));
 end
-
+min_tau = 2.001;
 counter = 1;
-Vstore = V(:)';
+Astore = A(:)';
 betaStore = BETA(:)';
 nu_tauStore = NU_TAU(:)';
 D = eye(LATENTDIM);
@@ -107,16 +81,10 @@ for j = 1:LATENTDIM
       - log(NUBAR_TAU(j)/2) ...
       - log(SIGMA2BAR_TAU(:,j));
 end
-lll(1) = sticabound(V, LAMBDA, XULINV, BETA, ...
-			    NU_TAU, SIGMA2_TAU, ...
-			    SBAR, SIGMA_S, ...
-			    NUBAR_TAU, SIGMA2BAR_TAU)/NDATA;
+lll(1) = sticabound/NDATA;
 llldiff = 1;
 order = randperm(5);
 while  counter < 400
-  %LAMBDA= LAMBDA-1./BETA;
-  %XULINV = X*U*diag(1./LAMBDA);
-  counter = counter + 1;
   for i = order
     switch i
      case 1
@@ -130,24 +98,20 @@ while  counter < 400
 	    - log(SIGMA2BAR_TAU(:,j));
       end
      case 3
-      updateV
+      updateA
      case 4
       updatebeta
      case 5 
-      stupdatetauprior('scg')
+      stupdatetauprior('scgnew2', min_tau)
     end
   end
-  lll(counter) = sticabound(V, LAMBDA, XULINV, BETA, ...
-			    NU_TAU, SIGMA2_TAU, ...
-			    SBAR, SIGMA_S, ...
-			    NUBAR_TAU, SIGMA2BAR_TAU)/NDATA ...
-      + sum(LAGRANGE.*(NU_TAU./(NU_TAU-2).*SIGMA2_TAU -1));
-  
-  llldiff = lll(counter) - lll(counter-1);
-  fprintf('Iteration %i, log likelihood change: %d\n', counter, llldiff)
-  
+    counter = counter + 1;
+    lll(counter) = sticabound/NDATA;
+    llldiff = lll(counter) - lll(counter-1);
+    fprintf('Iteration %i.%i, log likelihood change: %d\n', counter, i,llldiff)
+    
   if display
-    Vstore(counter, :) = V(:)';
+    Astore(counter, :) = A(:)';
     betaStore(counter, :) = BETA(:)';
     nu_tauStore(counter, :) = NU_TAU(:)';
   end
@@ -155,7 +119,7 @@ while  counter < 400
   if display > 1
     figure(1)
     subplot(4, 1, 1)
-    plot(Vstore)
+    plot(Astore)
     subplot(4, 1, 2)
     plot(log10(betaStore))
     subplot(4, 1, 3)
@@ -163,16 +127,14 @@ while  counter < 400
     subplot(4, 1, 4)
     plot(1:counter, lll(1:counter));
     drawnow
-  end
-  A = U*diag(LAMBDA)*V';
+  end  
   save ncompfoetalsavequick A BETA NU_TAU
-  if abs(llldiff) < 1e-3
-    break
-  end
+%  if abs(llldiff) < 1e-3
+%    break
+%  end
   pause(0.1)
 end
 
-A = U*diag(LAMBDA)*V';
 figure(3)
 for i = 1:LATENTDIM
   for j = i+1:LATENTDIM
@@ -188,8 +150,8 @@ clf
 yTopStore = 0;
 [void, index] = sort(NU_TAU);
 counter = 0;
-SLim(1) = min(min(s));
-SLim(2) = max(max(s));
+SBARLim(1) = min(min(SBAR));
+SBARLim(2) = max(max(SBAR));
 plotHeight = 1/LATENTDIM-0.05/LATENTDIM;
 for i = index
   counter = counter + 1;
@@ -210,8 +172,8 @@ for i = index
   axis 
   ax(counter, 2) = axes('position', [0.81 (LATENTDIM - counter)/LATENTDIM+0.01 0.08 plotHeight]);
   x = linspace(-4, 4, 200);
-  y = tpdf(x, NU_TAU(i), SIGMA2_TAU(i));
-  plot(x, y, 'b-')
+%  y = tpdf(x, NU_TAU(i), SIGMA2_TAU(i));
+%  plot(x, y, 'b-')
   yLim = get(gca, 'YLim');
   if yLim(2) > yTopStore
     yTopStore = yLim(2);
@@ -251,4 +213,74 @@ end
   
 save demncompfoetalquick.mat
 
+
+
+
+[void, order] = sort(NU_TAU);
+
+
+
+nu = NU_TAU(order);
+
+
+lastIC = max(find(nu< 100));
+firstPC = lastIC+1;
+orthoA = A(:, order);
+orthoA(:, end:-1:firstPC) = orthogonalise(orthoA(:, firstPC:end)')';
+
+orthoS = (pinv(orthoA)*X')';
+
+figure(5)
+clf
+yTopStore = 0;
+counter = 0;
+orthoSLim(1) = min(min(orthoS));
+orthoSLim(2) = max(max(orthoS));
+plotHeight = 1/LATENTDIM-0.05/LATENTDIM;
+for i = 1:LATENTDIM
+  counter = counter + 1;
+  
+  ax(counter, 1) = axes('position', [0.02 (LATENTDIM - counter)/LATENTDIM+0.01 0.77 plotHeight]);
+  plot(1:size(orthoS, 1), orthoS(:, i));
+  yLim = get(gca, 'YLim');
+  if yLim(2) < 4;
+    yLim(2) = 4;
+  end
+    if yLim(1) > -4;
+    yLim(1) = -4;
+  end
+  
+  set(gca, 'YLim', [-10 10]);
+  set(gca, 'XTickLabel', '')
+  set(gca, 'YTick', [yLim(1) 0 yLim(2)])
+  axis 
+  ax(counter, 2) = axes('position', [0.81 (LATENTDIM - counter)/LATENTDIM+0.01 0.08 plotHeight]);
+  x = linspace(-4, 4, 200);
+%  y = tpdf(x, nu(i), SIGMA2_TAU(order(i)));
+%  plot(x, y, 'b-')
+  yLim = get(gca, 'YLim');
+  if yLim(2) > yTopStore
+    yTopStore = yLim(2);
+  end
+  set(gca, 'XLim', [-10 10]);
+  set(gca, 'XTickLabel', '')%axis off
+  set(gca, 'YTickLabel', '')
+  ax(counter, 3) = axes('position', [0.91 (LATENTDIM - counter)/LATENTDIM+0.01 0.08 plotHeight]);
+  disp(nu(i))
+  index2 = find(orthoS(:, i) > -10 & orthoS(:, i) < 10);
+  index2 = 1:length(index2);
+  [heights, centres] = hist(orthoS(index2, i), 30);
+  heights = heights/sum(heights);
+  binwidth = centres(2) - centres(1);
+  heights = heights/binwidth;
+  bar(centres, heights);
+  set(gca, 'XLim', [-10 10]);
+  
+  yLim = get(gca, 'YLim')
+  if yLim(2) > yTopStore
+    yTopStore = yLim(2);
+  end
+  axis off
+  
+end
 

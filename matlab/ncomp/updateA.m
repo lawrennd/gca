@@ -1,5 +1,13 @@
 function updateA
 
+global DATADIM
+global LATENTDIM
+global X
+global SIGMA_S
+global SBAR
+global NDATA
+global A
+
 DATADIM = size(X, 2);
 LATENTDIM = size(SBAR, 2);
 NDATA = size(X, 1);
