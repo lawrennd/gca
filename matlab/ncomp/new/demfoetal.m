@@ -66,7 +66,7 @@ for j = 1:LATENTDIM
       - log(NUBAR_TAU(j)/2) ...
       - log(SIGMA2BAR_TAU(:,j));
 end
-min_tau = 2.001;
+min_tau = 2.5;
 counter = 1;
 Astore = A(:)';
 betaStore = BETA(:)';

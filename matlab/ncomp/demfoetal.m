@@ -32,7 +32,7 @@ global FANOISE % Set non-zero to use factor analysis noise model
 X = foetal_ecg(:, 2:9);
 
 FANOISE = 0;
-LATENTDIM = 6;
+LATENTDIM = 16;
 
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
@@ -47,11 +47,17 @@ end
 % Tolerances
 lltol = 1e-5;     % The tolerance on the log-likelihood for convergence
 calcLLEvery = 25; % How often to evaluate bound on log-likelihood
-min_tau = 2.001; % The minimum value allowed for NU_TAU
+min_tau = 2.5; % The minimum value allowed for NU_TAU
 
 % Initialisations
-[variance, U, V] = ppca(cov(X), LATENTDIM);
-A = U*diag(sqrt(V));
+if LATENTDIM < DATADIM
+    [variance, U, V] = ppca(cov(X), LATENTDIM);
+    A = U*diag(sqrt(V));
+else
+    A = randn(DATADIM, LATENTDIM)*0.1;
+    variance = mean(var(X));
+end
+
 NU_TAU = 5*ones(1, LATENTDIM);
 SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
 
