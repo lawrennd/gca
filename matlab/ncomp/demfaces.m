@@ -1,20 +1,19 @@
 %clear all;
 HOME = getenv('HOME');
 addpath([HOME '/mlprojects/gca/matlab'])
-rand('seed', 3.14e5)
-randn('seed', 3.14e5);
-display = 2;
-load 'c:\datasets\ICA\ECG Data\foetal_ecg.dat'
+rand('seed', 1e2)
+randn('seed', 1e2);
+display = 1;
+global X
+load 'c:\datasets\faces\neilfaceData.mat'
 
 global NDATA
 global DATADIM
 global LATENTDIM
 
-global X
 
 global BETA
 global NU_TAU
-global NU_GAUSS
 global SIGMA2_TAU
 
 global NUBAR_TAU
@@ -28,38 +27,34 @@ global SBAR
 global SIGMA_S
 
 global FANOISE % Set non-zero to use factor analysis noise model
-
-X = foetal_ecg(:, 2:9);
+X = double(X);
 
 FANOISE = 0;
-LATENTDIM = 6;
+LATENTDIM = 100;
 
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
 
 % X = zero meaned data;
 meanX = mean(X, 1);
-for i = 1:NDATA
-  X(i, :)  = X(i, :) - meanX;
+for n = 1:NDATA
+  X(n, :)  = X(n, :) - meanX;
 end
 
 
 % Tolerances
+Atol = 1e-5;
 lltol = 1e-5;     % The tolerance on the log-likelihood for convergence
-calcLLEvery = 25; % How often to evaluate bound on log-likelihood
+calcLLEvery = 50; % How often to evaluate bound on log-likelihood
 min_tau = 2.001; % The minimum value allowed for NU_TAU
-
+[variance, U, lambda] = ppca(cov(X), LATENTDIM);
 % Initialisations
-[variance, U, V] = ppca(cov(X), LATENTDIM);
-A = U*diag(sqrt(V));
+
+A = U*diag(lambda);
 NU_TAU = 5*ones(1, LATENTDIM);
 SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
 
-if FANOISE
-  BETA = 1./variance;
-else
-  BETA = DATADIM/sum(var(X));
-end
+BETA = 1/variance;
 
 NUBAR_TAU = nrepmat(NU_TAU, 1, NDATA);
 SIGMA2BAR_TAU = nrepmat(SIGMA2_TAU, 1, NDATA);
@@ -90,13 +85,18 @@ for j = 1:LATENTDIM
 end
 
 counter = 1;
-lll(counter) = sticabound/NDATA;
+%lll(counter) = sticabound/NDATA;
 llldiff = 1;
-
+oldA = A;
 iter = 0;
+lastorder = randperm(5);
 while  iter < 10000
-  order = randperm(5);
   iter = iter + 1;
+  order = randperm(5);
+  while(order(1) == lastorder(end))
+    order = randperm(5);
+  end
+  lastorder = order;
   for i = order
     switch i
      case 1
@@ -117,37 +117,41 @@ while  iter < 10000
       stupdatetauprior('scg', min_tau)
     end
   end
+  Achange = max(max(abs(A-oldA)));
+  oldA = A;
+%  if ~rem(iter, calcLLEvery)
+    counter = counter + 1;
+%    lll(counter) = sticabound/NDATA;
+%    llldiff = lll(counter) - lll(counter-1);
+%    if Achange < Atol
+%      break
+%    end
+%    if display
+      fprintf('Iteration %i.%i, matrix change: %d\n', iter, i, Achange)
+%    end
+%  end
 
+  
   if display > 1
     Astore(iter, :) = A(:)';
     betaStore(iter, :) = BETA(:)';
     nu_tauStore(iter, :) = NU_TAU(:)';
   end
   
-  if ~rem(iter, calcLLEvery)
-    counter = counter + 1;
-    lll(counter) = sticabound/NDATA;
-    llldiff = lll(counter) - lll(counter-1);
-    if llldiff < lltol*calcLLEvery
-      break
-    end
-    if display
-      fprintf('Iteration %i.%i, log likelihood change: %d\n', iter, i,llldiff)
-    end
-
-  
-    
-    if display > 1
-      figure(1)
-      subplot(4, 1, 1)
-      plot(Astore)
-      subplot(4, 1, 2)
-      plot(log10(betaStore))
-      subplot(4, 1, 3)
-      plot(log10(nu_tauStore))
-      subplot(4, 1, 4)
-      plot(0:calcLLEvery:iter, lll(1:counter));
-      drawnow
-    end 
+  if display > 1
+    figure(1)
+    subplot(4, 1, 1)
+    plot(Astore)
+    subplot(4, 1, 2)
+    plot(log10(betaStore))
+    subplot(4, 1, 3)
+    plot(log10(nu_tauStore))
+    subplot(4, 1, 4)
+    plot(1:counter, lll(1:counter));
+    drawnow
+  end  
+  drawnow
+  if ~rem(iter, 10)
+    save facesA A BETA NU_TAU
   end
 end

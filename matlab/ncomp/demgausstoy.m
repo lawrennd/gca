@@ -1,10 +1,21 @@
-%clear all;
-HOME = getenv('HOME');
-addpath([HOME '/mlprojects/gca/matlab'])
-rand('seed', 3.14e5)
-randn('seed', 3.14e5);
-display = 2;
-load 'c:\datasets\ICA\ECG Data\foetal_ecg.dat'
+randn('seed', 1e5);
+rand('seed', 1e5);
+% Toy problem for NIPS paper.
+ndata = 1000;
+varVector = 10:-1:1;
+dataDim = length(varVector);
+
+% Choose a projection
+tempMat = randn(dataDim, 10);
+[U, V] = eig(tempMat*tempMat');
+project = U;
+
+% Sample a Gaussian data set
+gaussX = randn(ndata, dataDim);
+for i = 1:dataDim;
+  gaussX(:, i) = gaussX(:, i)*sqrt(varVector(i));
+end
+gaussX = gaussX*project';
 
 global NDATA
 global DATADIM
@@ -14,7 +25,6 @@ global X
 
 global BETA
 global NU_TAU
-global NU_GAUSS
 global SIGMA2_TAU
 
 global NUBAR_TAU
@@ -29,10 +39,11 @@ global SIGMA_S
 
 global FANOISE % Set non-zero to use factor analysis noise model
 
-X = foetal_ecg(:, 2:9);
+display = 2;
+X = gaussX;
 
 FANOISE = 0;
-LATENTDIM = 6;
+LATENTDIM = 5;
 
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
@@ -50,13 +61,12 @@ calcLLEvery = 25; % How often to evaluate bound on log-likelihood
 min_tau = 2.001; % The minimum value allowed for NU_TAU
 
 % Initialisations
-[variance, U, V] = ppca(cov(X), LATENTDIM);
-A = U*diag(sqrt(V));
+A = randn( DATADIM, LATENTDIM)*0.01;
 NU_TAU = 5*ones(1, LATENTDIM);
 SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
 
 if FANOISE
-  BETA = 1./variance;
+  BETA = 1./var(X);
 else
   BETA = DATADIM/sum(var(X));
 end
@@ -94,7 +104,7 @@ lll(counter) = sticabound/NDATA;
 llldiff = 1;
 
 iter = 0;
-while  iter < 10000
+while  iter < 10000;
   order = randperm(5);
   iter = iter + 1;
   for i = order
@@ -118,11 +128,6 @@ while  iter < 10000
     end
   end
 
-  if display > 1
-    Astore(iter, :) = A(:)';
-    betaStore(iter, :) = BETA(:)';
-    nu_tauStore(iter, :) = NU_TAU(:)';
-  end
   
   if ~rem(iter, calcLLEvery)
     counter = counter + 1;
@@ -134,20 +139,42 @@ while  iter < 10000
     if display
       fprintf('Iteration %i.%i, log likelihood change: %d\n', iter, i,llldiff)
     end
+  end
 
   
-    
-    if display > 1
-      figure(1)
-      subplot(4, 1, 1)
-      plot(Astore)
-      subplot(4, 1, 2)
-      plot(log10(betaStore))
-      subplot(4, 1, 3)
-      plot(log10(nu_tauStore))
-      subplot(4, 1, 4)
-      plot(0:calcLLEvery:iter, lll(1:counter));
-      drawnow
-    end 
+  if display > 1
+    Astore(iter, :) = A(:)';
+    betaStore(iter, :) = BETA(:)';
+    nu_tauStore(iter, :) = NU_TAU(:)';
   end
+  
+  if display > 1
+    figure(1)
+    subplot(4, 1, 1)
+    plot(Astore)
+    subplot(4, 1, 2)
+    plot(log10(betaStore))
+    subplot(4, 1, 3)
+    plot(log10(nu_tauStore))
+    subplot(4, 1, 4)
+    plot(1:counter, lll(1:counter));
+    drawnow
+  end  
 end
+
+
+
+Abar = A./nrepmat(sqrt(sum(A.*A)), 1, 10);
+P = Abar'*project;
+projections = sqrt(sum(P.^2));
+
+
+% PPCA experiment
+[var, Upca, lambda] = ppca(cov(X), 5);
+Ppca = Upca'*project;
+projectionsPPCA = sqrt(sum(Ppca.^2));
+
+[U I] = eig(cov(X));
+PCA = U'*project;
+projectionsPCA = sqrt(sum(PCA.^2));
+

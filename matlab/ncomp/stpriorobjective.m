@@ -12,7 +12,7 @@ function f = stpriorobjective(gamma, expTau, expLnTau, min_tau, k)
 latentDim = size(expTau, 2);
 
 if gamma*gamma < eps;
-  gamma = sqrt(eps)
+  gamma = sqrt(eps);
 end
 nu_tau = min_tau+gamma*gamma;
 sigma2_tau = (nu_tau-2)/nu_tau;

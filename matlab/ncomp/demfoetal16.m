@@ -1,8 +1,8 @@
 %clear all;
 HOME = getenv('HOME');
 addpath([HOME '/mlprojects/gca/matlab'])
-rand('seed', 3.14e5)
-randn('seed', 3.14e5);
+%rand('seed', 1e1)
+%randn('seed', 1e1);
 display = 2;
 load 'c:\datasets\ICA\ECG Data\foetal_ecg.dat'
 
@@ -14,7 +14,6 @@ global X
 
 global BETA
 global NU_TAU
-global NU_GAUSS
 global SIGMA2_TAU
 
 global NUBAR_TAU
@@ -32,7 +31,7 @@ global FANOISE % Set non-zero to use factor analysis noise model
 X = foetal_ecg(:, 2:9);
 
 FANOISE = 0;
-LATENTDIM = 6;
+LATENTDIM = 16;
 
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
@@ -45,18 +44,17 @@ end
 
 
 % Tolerances
-lltol = 1e-5;     % The tolerance on the log-likelihood for convergence
+lltol = 1e-4;     % The tolerance on the log-likelihood for convergence
 calcLLEvery = 25; % How often to evaluate bound on log-likelihood
 min_tau = 2.001; % The minimum value allowed for NU_TAU
 
 % Initialisations
-[variance, U, V] = ppca(cov(X), LATENTDIM);
-A = U*diag(sqrt(V));
+A = randn( DATADIM, LATENTDIM)*0.01;
 NU_TAU = 5*ones(1, LATENTDIM);
 SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
 
 if FANOISE
-  BETA = 1./variance;
+  BETA = 1./var(X);
 else
   BETA = DATADIM/sum(var(X));
 end
@@ -78,7 +76,6 @@ if display > 1
 end
 
 SBAR = zeros(NDATA, LATENTDIM);
-SIGMA_S = zeros(LATENTDIM, LATENTDIM, NDATA);
 updatelatent
 
 stupdatetau
@@ -94,7 +91,7 @@ lll(counter) = sticabound/NDATA;
 llldiff = 1;
 
 iter = 0;
-while  iter < 10000
+while  iter < 1000
   order = randperm(5);
   iter = iter + 1;
   for i = order
@@ -118,11 +115,6 @@ while  iter < 10000
     end
   end
 
-  if display > 1
-    Astore(iter, :) = A(:)';
-    betaStore(iter, :) = BETA(:)';
-    nu_tauStore(iter, :) = NU_TAU(:)';
-  end
   
   if ~rem(iter, calcLLEvery)
     counter = counter + 1;
@@ -134,20 +126,25 @@ while  iter < 10000
     if display
       fprintf('Iteration %i.%i, log likelihood change: %d\n', iter, i,llldiff)
     end
+  end
 
   
-    
-    if display > 1
-      figure(1)
-      subplot(4, 1, 1)
-      plot(Astore)
-      subplot(4, 1, 2)
-      plot(log10(betaStore))
-      subplot(4, 1, 3)
-      plot(log10(nu_tauStore))
-      subplot(4, 1, 4)
-      plot(0:calcLLEvery:iter, lll(1:counter));
-      drawnow
-    end 
+  if display > 1
+    Astore(iter, :) = A(:)';
+    betaStore(iter, :) = BETA(:)';
+    nu_tauStore(iter, :) = NU_TAU(:)';
   end
+  
+  if display > 1
+    figure(1)
+    subplot(4, 1, 1)
+    plot(Astore)
+    subplot(4, 1, 2)
+    plot(log10(betaStore))
+    subplot(4, 1, 3)
+    plot(log10(nu_tauStore))
+    subplot(4, 1, 4)
+    plot(1:counter, lll(1:counter));
+    drawnow
+  end  
 end

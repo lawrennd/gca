@@ -1,10 +1,29 @@
-%clear all;
-HOME = getenv('HOME');
-addpath([HOME '/mlprojects/gca/matlab'])
-rand('seed', 3.14e5)
-randn('seed', 3.14e5);
-display = 2;
-load 'c:\datasets\ICA\ECG Data\foetal_ecg.dat'
+% Toy problem for NIPS paper.
+
+
+ndata = 1000;
+
+
+truenu = [2.1 2.1 2.1 2.1 2.1 2.1];
+dataDim = length(truenu)-1;
+latentDim = length(truenu);
+trueA = [round(randn(dataDim, latentDim)*40)/10];
+trueBeta = 100;
+
+% Sample a Student-t data set
+
+tX = zeros(ndata, dataDim);
+% Sample the taus
+
+tauSample = zeros(ndata, latentDim);	
+for i = 1:latentDim
+  tauSample(:, i) = stgamrnd(truenu(i), (truenu(i)-2)/truenu(i), ndata, 1);
+end
+
+tX = randn(ndata, latentDim)./sqrt(tauSample);
+tX = tX*trueA' + randn(ndata, dataDim)/sqrt(trueBeta);
+
+
 
 global NDATA
 global DATADIM
@@ -14,7 +33,6 @@ global X
 
 global BETA
 global NU_TAU
-global NU_GAUSS
 global SIGMA2_TAU
 
 global NUBAR_TAU
@@ -29,10 +47,11 @@ global SIGMA_S
 
 global FANOISE % Set non-zero to use factor analysis noise model
 
-X = foetal_ecg(:, 2:9);
+display = 2;
+X = tX;
 
 FANOISE = 0;
-LATENTDIM = 6;
+LATENTDIM = latentDim;
 
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
@@ -50,13 +69,12 @@ calcLLEvery = 25; % How often to evaluate bound on log-likelihood
 min_tau = 2.001; % The minimum value allowed for NU_TAU
 
 % Initialisations
-[variance, U, V] = ppca(cov(X), LATENTDIM);
-A = U*diag(sqrt(V));
+A = randn( DATADIM, LATENTDIM)*0.01;
 NU_TAU = 5*ones(1, LATENTDIM);
 SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
 
 if FANOISE
-  BETA = 1./variance;
+  BETA = 1./var(X);
 else
   BETA = DATADIM/sum(var(X));
 end
@@ -113,16 +131,12 @@ while  iter < 10000
       updateA
      case 4
       updatebeta
+      %BETA = 10000;
      case 5 
       stupdatetauprior('scg', min_tau)
     end
   end
 
-  if display > 1
-    Astore(iter, :) = A(:)';
-    betaStore(iter, :) = BETA(:)';
-    nu_tauStore(iter, :) = NU_TAU(:)';
-  end
   
   if ~rem(iter, calcLLEvery)
     counter = counter + 1;
@@ -134,20 +148,32 @@ while  iter < 10000
     if display
       fprintf('Iteration %i.%i, log likelihood change: %d\n', iter, i,llldiff)
     end
+  end
 
   
-    
-    if display > 1
-      figure(1)
-      subplot(4, 1, 1)
-      plot(Astore)
-      subplot(4, 1, 2)
-      plot(log10(betaStore))
-      subplot(4, 1, 3)
-      plot(log10(nu_tauStore))
-      subplot(4, 1, 4)
-      plot(0:calcLLEvery:iter, lll(1:counter));
-      drawnow
-    end 
+  if display > 1
+    Astore(iter, :) = A(:)';
+    betaStore(iter, :) = BETA(:)';
+    nu_tauStore(iter, :) = NU_TAU(:)';
   end
+  
+  if display > 1
+    figure(1)
+    subplot(4, 1, 1)
+    plot(Astore)
+    subplot(4, 1, 2)
+    plot(log10(betaStore))
+    subplot(4, 1, 3)
+    plot(log10(nu_tauStore))
+    subplot(4, 1, 4)
+    plot(1:counter, lll(1:counter));
+    drawnow
+  end  
 end
+
+
+figure
+matplot([trueA zeros(DATADIM, 1) -A(:, find(NU_TAU<10))])
+axis off
+axis equal
+%save toyStudentT_ncomp.mat
