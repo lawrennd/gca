@@ -3,7 +3,7 @@ rand('seed', 1e5)
 randn('seed', 1e5);
 niters = 100;
 display = 2;
-load \\msrc-neil01\datasets\ICA\ME'G Data\'HUT\hutmeg
+load([DATASETS '\ICA\MEG Data\HUT\hutmeg'])
 expectedLatentDim = 12;
 
 X = MEG_art(:, 3500:6500)'; %6500)';

@@ -37,4 +37,4 @@ axis equal
 subplot(1, 2, 2), matplot(At(:, [1 4 6]))
 axis off
 axis equal
-print -deps z:\tex\projects\ica\diagrams\icarecovered.eps
+%print -deps z:\tex\projects\ica\diagrams\icarecovered.eps
