@@ -20,8 +20,6 @@ end
 U = chol(sum_ssT);
 Uinv = eye(LATENTDIM)/U;
 inv_sum_ssT = Uinv*Uinv'; 
-
 for i = 1:DATADIM
   A(i, :) = X(:, i)'*SBAR*inv_sum_ssT;
 end
-%A = A./nrepmat(sum(A.*A, 1), 1, LATENTDIM);

@@ -14,13 +14,15 @@ global SIGMA_S
 
 SBAR = zeros(NDATA, LATENTDIM);
 SIGMA_S = zeros(LATENTDIM, LATENTDIM, NDATA);
+
 B = diag(BETA);
-ATBA = A'*A*BETA;
+ATBA = A'*B*A;
+
 for n = 1:NDATA
   invSigma_s = diag(TAU(n, :)) + ATBA;
   C = chol(invSigma_s);
   Cinv = eye(LATENTDIM)/C;
   SIGMA_S(:, :, n) = Cinv*Cinv'; 
-  SBAR(n, :) = BETA*X(n, :)*A*SIGMA_S(:, :, n);
+  SBAR(n, :) = (X(n, :).*BETA)*A*SIGMA_S(:, :, n);
 end
 
