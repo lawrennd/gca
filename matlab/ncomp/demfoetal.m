@@ -26,7 +26,7 @@ global A
 global SBAR
 global SIGMA_S
 
-LATENTDIM = 14;
+LATENTDIM = 7;
 X = foetal_ecg(:, 2:9);%(1:10:end, :);%(:, 2:9); %6500)';
 NDATA = size(X, 1);
 DATADIM = size(X, 2);
@@ -52,7 +52,7 @@ Lntautol = 1e-3;
 lltol = 1e-3;
  
 NU_TAU = 3*ones(1, LATENTDIM);
-SIGMA2_TAU = 1/3*ones(1, LATENTDIM);
+SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
 
 BETA = min(eig(cov(X)));
 
@@ -102,14 +102,14 @@ while  counter < 400
      case 4
       updatebeta
      case 5 
-      stupdatetauprior('scgnew2', min_tau)
+      stupdatetauprior('scg', min_tau)
     end
   end
-    counter = counter + 1;
-    lll(counter) = sticabound/NDATA;
-    llldiff = lll(counter) - lll(counter-1);
-    fprintf('Iteration %i.%i, log likelihood change: %d\n', counter, i,llldiff)
-    
+  counter = counter + 1;
+  lll(counter) = sticabound/NDATA;
+  llldiff = lll(counter) - lll(counter-1);
+  fprintf('Iteration %i.%i, log likelihood change: %d\n', counter, i,llldiff)
+  
   if display
     Astore(counter, :) = A(:)';
     betaStore(counter, :) = BETA(:)';

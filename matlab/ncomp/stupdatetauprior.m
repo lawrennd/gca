@@ -43,7 +43,7 @@ switch method
        gamma = sqrt(eps);
      end
      NU_TAU(k) = min_tau+gamma*gamma;
-     SIGMA2_TAU(k) = NU_TAU(k)/(NU_TAU(k) - 2);
+     SIGMA2_TAU(k) = (NU_TAU(k) - 2)/NU_TAU(k);
    end
  
  case 'quasinew' 
