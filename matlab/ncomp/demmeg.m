@@ -28,7 +28,7 @@ global SIGMA_S
 
 global FANOISE % Set non-zero to use factor analysis noise model
 
-X = MEG_art(:, 1500:4500)';
+X = MEG_art(:, 3001:6000)';
 
 FANOISE = 0;
 LATENTDIM = 20;
@@ -41,10 +41,10 @@ meanX = mean(X, 1);
 for n = 1:NDATA
   X(n, :)  = X(n, :) - meanX;
 end
-stdX = sqrt(var(X, 1));
-for n = 1:NDATA
-  X(n, :)  = X(n, :)./stdX;
-end
+%stdX = sqrt(var(X, 1));
+%for n = 1:NDATA
+%  X(n, :)  = X(n, :)./stdX;
+%end
 
 
 % Tolerances
@@ -57,11 +57,10 @@ min_tau = 2.001; % The minimum value allowed for NU_TAU
 A = U*diag(sqrt(V));
 NU_TAU = 5*ones(1, LATENTDIM);
 SIGMA2_TAU = (NU_TAU - 2)./NU_TAU;
-
 if FANOISE
-  BETA = 1./var(X);
+  BETA = ones(1, DATADIM)./variance;
 else
-  BETA = DATADIM/sum(var(X));
+  BETA = 1/variance;
 end
 
 NUBAR_TAU = nrepmat(NU_TAU, 1, NDATA);
@@ -154,3 +153,4 @@ while  iter < 10000
     drawnow
   end  
 end
+save safetySave3.mat
