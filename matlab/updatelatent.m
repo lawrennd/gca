@@ -2,7 +2,7 @@ function [sBar, Sigma_s] = updatelatent(model, X)
 
 % UPDATELATENT Update the source values in the variational algorithm.
 
-% GCAc
+% GCA
 
 sBar = zeros(model.numData, model.latentDim);
 Sigma_s = zeros(model.latentDim, model.latentDim, model.numData);
