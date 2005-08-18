@@ -5,7 +5,7 @@
 rand('seed', 3.14e5)
 randn('seed', 3.14e5);
 
-load 'foetal_ecg.dat'
+load 'datasets/foetal_ecg.dat'
 
 % Centre the data
 X = foetal_ecg(:, 2:9);

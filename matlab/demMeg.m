@@ -5,7 +5,7 @@
 rand('seed', 3.14e5)
 randn('seed', 3.14e5);
 
-load hutmeg
+load 'datasets/hutmeg.mat'
 expectedLatentDim = 6;
 
 
