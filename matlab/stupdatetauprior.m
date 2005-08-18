@@ -1,47 +1,60 @@
-function [nu_tau, sigma2_tau] = stupdatetauprior(nu_tau, sigma2_tau, expTau, expLnTau, method)
+function [sigma2_tau, nu_tau] = stupdatetauprior(model, X, method, min_tau)
 
+% STUPDATETAUPRIOR Update the values of nu_tau.
 
-if nargin < 5
+% GCA
+
+if nargin < 2
+  min_tau = 2.1;
+end
+if nargin < 1
   method = 'scg';
 end
 options = foptions;
-%options(1) = 1;
+options(1) = 0;
+options(9) = 0;
+options(14) = 1000;
+
+nu_tau = model.nu_tau;
+sigma2_tau = model.sigma2_tau;
 
 switch method
- case 'moments'
-  sigma2_tau = 1./mean(expTau);
-  varTau = mean(mean(model.abar_tau./(model.bbar_tau.*model.bbar_tau)));
-  a_tau = meanTau./varTau;
-  b_tau = meanTau.*model.b_tau;
   
  case 'scg' 
-  lnnu_tau = log(nu_tau);
-  lnnu_tau = scg('sttauobjective', lnnu_tau, options, 'sttaugradient',  expTau, ...
-		 expLnTau, sigma2_tau);
-  nu_tau = exp(lnnu_tau);
+   for k = 1:model.latentDim
+     gamma = sqrt(nu_tau(k)-min_tau);
+     param = gamma;
+     gamma = scg('stpriorobjective', ...
+		    gamma,...
+		    options, ...
+		    'stpriorgradient', ...
+		    model.tau, ...
+		     model.lntau, ...
+		    min_tau, k);
+     if gamma*gamma < eps
+       gamma = sqrt(eps);
+     end
+     nu_tau(k) = min_tau+gamma*gamma;
+     sigma2_tau(k) = (nu_tau(k) - 2)/nu_tau(k);
+   end
  
  case 'quasinew' 
-  lnnu_tau = log(nu_tau);
-  lnnu_tau = quasinew('sttauobjective', lnnu_tau, options, 'sttaugradient', ...
-		      expTau, expLnTau, sigma2_tau);
-  nu_tau = exp(lnnu_tau);
-
- case 'fullscg'
-  lnparam = log([nu_tau sigma2_tau]);
-  lnparam = scg('sttauobjective', lnparam, options, 'sttaugradient', expTau, ...
-		expLnTau);
-  latentDim = size(expTau, 2);
-  nu_tau = exp(lnparam(1:latentDim));
-  sigma2_tau = exp(lnparam(latentDim + 1:end));
- 
- case 'fullquasinew'
-  lnparam = log([nu_tau sigma2_tau]);
-  lnparam = quasinew('sttauobjective', lnparam, options, 'sttaugradient', ...
-		     expTau, expLnTau);
-  latentDim = size(expTau, 2);
-  nu_tau = exp(lnparam(1:latentDim));
-  sigma2_tau = exp(lnparam(latentDim + 1:end));
-  
+   for k = 1:model.latentDim
+     gamma = sqrt(nu_tau(k)-min_tau);
+     param = gamma;
+     gamma = quasinew('stpriorobjective', ...
+		    gamma,...
+		    options, ...
+		    'stpriorgradient', ...
+		    model.tau, ...
+		     model.lntau, ...
+		    min_tau, k);
+     if gamma*gamma < eps
+       gamma = sqrt(eps);
+     end
+     nu_tau(k) = min_tau+gamma*gamma;
+     sigma2_tau(k) = nu_tau(k)/(nu_tau(k) - 2);
+   end
 end
 
 

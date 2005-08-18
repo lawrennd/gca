@@ -1,37 +1,31 @@
-function [nubar_tau, sigma2bar_tau] = stupdatetau(sbar, Sigma_s, nu_tau, sigma2_tau);
+function [sigma2Bar_tau, nuBar_tau] = stupdatetau(model, X)
 
-if nargin < 4
-  sigma2_tau = 1;
-end
+% STUPDATETAU Update the values of model.tau.
 
-if nargin < 3
-  nu_tau = .5;
-end
+% GCA
 
-a = nu_tau/2;
-b = a.*sigma2_tau;
-
-latentDim = size(sbar, 2);
-ndata = size(sbar, 1);
+a = model.nu_tau/2;
+b = a.*model.sigma2_tau;
 
 if length(a) == 1
-  a = nrepmat(a, 2, latentDim);
+  a = nrepmat(a, 2, model.latentDim);
 end
 if length(b) == 1
-  b = nrepmat(b, 2, latentDim);
+  b = nrepmat(b, 2, model.latentDim);
 end
 
-bbar = zeros(ndata, 1);
+bbar = zeros(model.numData, 1);
 abar = 0.5+a;
 
-for j = 1:latentDim
-%  cbar(j) = 0.5+c(j);
-%  dbar(:, j) = (d(j)+0.5*(sbar(:, j).*sbar(:, j) + squeeze(Sigma_s(j, j, :))));
-  bbar = b(j) +0.5*(sbar(:, j).*sbar(:, j) + squeeze(Sigma_s(j, j, :)));
-  sigma2bar_tau(:, j) = bbar./abar(j);
+sigma2Bar_tau = zeros(size(model.sigma2Bar_tau));
+for j = 1:model.latentDim
+  bbar = b(j) +0.5*(model.sBar(:, j).*model.sBar(:, j) + squeeze(model.Sigma_s(j, j, :)));
+  sigma2Bar_tau(:, j) = bbar./abar(j);
 end
 
-nubar_tau = abar*2;
+nuBar_tau = abar*2;
+
+
 
 
 

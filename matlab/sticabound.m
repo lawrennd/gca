@@ -1,68 +1,84 @@
-function lll = sticabound(V, lambda, XULinv, beta, nu, sigma2_tau, sbar, ...
-			   Sigma_s,  nubar_tau, sigma2bar_tau)
+function lll = sticabound(model, X)
 
-dataDim = size(XULinv, 2);
-ndata = size(XULinv, 1);
-latentDim = size(sbar, 2);
+% STICABOUND Compute the lower bound on the log likelihood.
+
+% GCA
+
+model.dataDim = size(X, 2);
+model.numData = size(X, 1);
+model.latentDim = size(model.sBar, 2);
 
 % Work out parameters from expectations.
-tau = 1./sigma2bar_tau;
-for j = 1:latentDim
-  lntau(:, j) = psi(nubar_tau(j)/2) ...
-	  - log(nubar_tau(j)/2) ...
-	  - log(sigma2bar_tau(:,j));
+model.tau = 1./model.sigma2Bar_tau;
+for j = 1:model.latentDim
+   model.lntau(:, j) = digamma(model.nuBar_tau(j)/2) ...
+	  - log(model.nuBar_tau(j)/2) ...
+	  - log(model.sigma2Bar_tau(:,j));
 end
-
-
 
 
 % Now do the expectations of the joint distribution
 
 % Data term
-expectedOutput = (XULinv - sbar*V);
+expectedOutput = (X - model.sBar*model.A');
 datapart = 0;
-for i = 1:dataDim
-  datapart = datapart + beta*lambda(i)*lambda(i)*expectedOutput(:, i)'*expectedOutput(:, i);
-  for n = 1:ndata
-    datapart = datapart + beta*lambda(i)*lambda(i)*V(:, i)'*Sigma_s(:, :, n)*V(:, i);
+if model.FANoise
+  for i = 1:model.dataDim
+    datapart = datapart + model.beta(i)*expectedOutput(:, i)'*expectedOutput(:, i);
+    for n = 1:model.numData
+      datapart = datapart + model.beta(i)*model.A(i, :)*model.Sigma_s(:, :, n)*model.A(i, :)';
+    end
   end
-end
 
-datapart = datapart*0.5;
-expLnp_x = -datapart  - 0.5*ndata*dataDim*log(2*pi) + 0.5*ndata*dataDim*log(beta);
+  datapart = datapart*0.5;
+  expLnp_x = -datapart  - 0.5*model.numData*model.dataDim*log(2*pi) + 0.5*model.numData*sum(log(model.beta));
+else
+  for i = 1:model.dataDim
+    datapart = datapart + model.beta*expectedOutput(:, i)'*expectedOutput(:, i);
+    for n = 1:model.numData
+      datapart = datapart + model.beta*model.A(i, :)*model.Sigma_s(:, :, n)*model.A(i, :)';
+    end
+  end
 
+  datapart = datapart*0.5;
+  expLnp_x = -datapart  - 0.5*model.numData*model.dataDim*log(2*pi) + 0.5*model.numData*model.dataDim*log(model.beta);
+end  
 % Latent variables' prior
 latentPart = 0;
-for n = 1:ndata
-  latentPart = latentPart + sbar(n, :)*diag(tau(n, :))*sbar(n, :)' + ...
-      trace(diag(tau(n, :))*Sigma_s(:, :, n));
+for n = 1:model.numData
+  latentPart = latentPart + model.sBar(n, :)*diag(model.tau(n, :))*model.sBar(n, :)' + ...
+      trace(diag(model.tau(n, :))*model.Sigma_s(:, :, n));
 end
-expLnp_s = -0.5*latentPart - 0.5*ndata*latentDim*log(2*pi) + 0.5*sum(sum(lntau));
+expLnp_s = -0.5*latentPart - 0.5*model.numData*model.latentDim*log(2*pi) + 0.5*sum(sum( model.lntau));
   
 % Noise variance prior
-expLnp_beta = -log(beta);
+if model.FANoise
+  expLnp_beta = 0;%-sum(log(model.beta));
+else
+  expLnp_beta = 0;%-log(model.beta);
+end
 
-% Tau prior
+% model.tau prior
 expLnp_tau = 0;	  
-for j = 1:latentDim
-  expLnp_tau = expLnp_tau + stgamma_expectation(nu(j), ...
-						sigma2_tau(j), ...
-						tau(:, j), ...
-						lntau(:, j));
+for j = 1:model.latentDim
+  expLnp_tau = expLnp_tau + stgamma_expectation(model.nu_tau(j), ...
+						model.sigma2_tau(j), ...
+						model.tau(:, j), ...
+						 model.lntau(:, j));
 end
 
 negenergy = expLnp_x + expLnp_s + expLnp_tau + expLnp_beta; 
 
 entropy_S = 0;
-for n = 1:ndata
-  entropy_S = entropy_S+0.5*(log(det(Sigma_s(:, :, n))) ...
-		      + 0.5*latentDim*(1+log(2*pi)));
+for n = 1:model.numData
+  entropy_S = entropy_S+0.5*(log(det(model.Sigma_s(:, :, n))) ...
+		      + 0.5*model.latentDim*(1+log(2*pi)));
 end
 
 
 entropy_tau = 0;	  
-for j = 1:latentDim
-  entropy_tau = entropy_tau + stgamma_entropy(nubar_tau(j), sigma2bar_tau(:, j));
+for j = 1:model.latentDim
+  entropy_tau = entropy_tau + stgamma_entropy(model.nuBar_tau(j), model.sigma2Bar_tau(:, j));
 end
 
 
